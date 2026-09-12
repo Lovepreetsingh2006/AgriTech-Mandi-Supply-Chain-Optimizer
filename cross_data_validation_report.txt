@@ -1,0 +1,80 @@
+Summary: What We Did in the Cross-Dataset Stage
+
+We took the five individually cleaned datasets and connected them to make the data consistent and ready for analytics.
+
+1. Validated the Mandi Master
+Confirmed 57 mandis.
+All mandi_id values are unique.
+No missing mandi IDs.
+Master was treated as the reference source.
+2. Connected Arrivals with Mandi Master
+Joined Arrivals with Master using mandi_id.
+Added:
+mandi_name
+district
+state
+mandi_type
+All 23,767 arrival records matched a valid mandi.
+No rows were lost during the join.
+3. Recovered/validated Price information
+Used mandi_id to check Price against the Mandi Master.
+Checked missing district_final.
+The remaining 271 missing districts could not be reliably recovered, so we left them missing instead of guessing.
+MSP was already recovered during the earlier cleaning stage:
+2,347 MSP values recovered
+30 MSP values remain missing because no reliable lookup was available.
+4. Connected Transport with Mandi Master
+Joined Transport using mandi_id.
+Added mandi information such as:
+mandi_name
+district
+state
+mandi_type
+All 10,000 transport records successfully matched the Master.
+5. Validated Transport Transit Data
+
+We checked the transit-time results from the previous cleaning stage:
+
+900 transit values were recovered/imputed
+141 remain missing
+0 negative transit times
+Average transit: 13.02 hours
+Median: 13 hours
+Maximum: 44.31 hours
+6. Validated Weather Data
+15,000 weather records
+51 sensors
+Temperature: 0 missing
+Rainfall: 2,309 missing
+Humidity: 1,500 missing
+We deliberately did not invent weather values from other datasets.
+7. Created Daily Weather Data
+
+We aggregated sensor readings by date to create:
+
+Average temperature
+Total rainfall
+Average humidity
+Number of active sensors
+
+This produced 252 daily weather records, which will be useful for joining weather with agricultural activity later.
+
+8. Created a Recovery Audit
+
+Finally, we created an audit table documenting:
+
+Which dataset was affected
+What operation was performed
+Source dataset
+Matching key
+Missing values before
+Values recovered
+Missing values after
+
+This gives us a clear data lineage/reproducibility record for the datathon.
+
+In one line
+
+Raw data → individual cleaning → cross-dataset validation → Master-based enrichment → legitimate missing-value recovery → weather aggregation → audit → final analytics-ready datasets.
+
+Your final validation passed for the important joins, so the data-cleaning stage is now complete.

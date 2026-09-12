@@ -1,0 +1,1224 @@
+AgriTech Datathon — Work Completed So Far
+1. Selected Track
+
+We decided to work on Track 3 — AgriTech: “Mandi-to-Market Supply Chain Optimizer.”
+
+The goal is to turn several messy agricultural datasets into a reliable analytical system that can answer questions around:
+
+Crop arrivals
+Wholesale prices vs MSP
+Price crashes
+Mandi performance
+Transport delays
+Weather/rainfall
+Supply-chain bottlenecks
+Price discovery
+
+The datathon's required architecture is essentially:
+
+Raw Data → Data Cleaning → Analytics → Dashboard → Optional AI Agent
+
+2. Dataset Understanding
+
+The Track 3 data contains 5 main datasets:
+
+Dataset	Purpose
+track3_mandi_arrivals.csv	Daily crop arrivals at mandis
+track3_price_and_msp.json	Wholesale prices and MSP
+track3_weather_sensors.xlsx	Weather/IoT sensor data
+track3_transport_logistics.csv	Truck transportation data
+track3_mandi_master.csv	Mandi reference/master information
+
+There is also a dataset notes file explaining the intended joins and cleaning requirements.
+
+The expected relationships are:
+
+                    ┌─────────────────┐
+                    │   Mandi Master  │
+                    │ mandi_id        │
+                    │ district        │
+                    │ state           │
+                    └────────┬────────┘
+                             │
+            ┌────────────────┼────────────────┐
+            │                │                │
+            ▼                ▼                ▼
+       Arrivals           Prices         Transport
+            │
+            │
+            ▼
+         Weather
+
+Weather will eventually be aggregated by date and mapped to districts/mandis.
+
+3. Technology Architecture
+
+We decided to use a hybrid architecture:
+
+Raw Files
+   ↓
+Python / Pandas
+   ↓
+Cleaned Data
+   ↓
+DuckDB / SQL
+   ↓
+Analytics Layer
+   ↓
+Power BI Dashboard
+   ↓
+Website + AI Chatbot
+Python/Jupyter
+
+Used for:
+
+Data inspection
+Cleaning
+Standardization
+Data validation
+Exploratory analysis
+Documenting cleaning decisions
+DuckDB / SQL
+
+Used for:
+
+Analytical queries
+KPI calculations
+Aggregations
+Creating reusable analytical tables
+Power BI
+
+Used for:
+
+Dashboard
+KPIs
+Charts
+Filters
+Interactive exploration
+AI chatbot
+
+Planned as a bonus layer:
+
+User question
+      ↓
+AI understands question
+      ↓
+Generate SQL
+      ↓
+Query cleaned analytical data
+      ↓
+Choose appropriate chart
+      ↓
+Plotly visualization
+      ↓
+Natural-language explanation
+
+For example:
+
+"Which mandis are currently below MSP for wheat?"
+
+The AI should query the analytical layer rather than directly reading the messy raw files.
+
+4. Project Folder Structure
+
+We planned this structure:
+
+AgriTech-Datathon/
+│
+├── data/
+│   ├── raw/
+│   │   ├── track3_mandi_arrivals.csv
+│   │   ├── track3_price_and_msp.json
+│   │   ├── track3_weather_sensors.xlsx
+│   │   ├── track3_transport_logistics.csv
+│   │   └── track3_mandi_master.csv
+│   │
+│   └── cleaned/
+│
+├── notebooks/
+│   └── 01_data_cleaning.ipynb
+│
+├── src/
+│   ├── cleaning.py
+│   ├── transformations.py
+│   └── validation.py
+│
+├── dashboard/
+│   └── app.py
+│
+├── README.md
+│
+└── requirements.txt
+
+The notebook is being used to understand and document the data first. Later, reusable cleaning functions can be moved into src/.
+
+5. Initial Dataset Audit
+
+We loaded all five datasets and checked their basic structure.
+
+Raw dataset sizes
+Dataset	Rows	Columns
+Arrivals	25,750	8
+Mandi Master	60	6
+Price	12,000	9
+Transport	10,400	10
+Weather	15,000	7
+
+This was our first major checkpoint.
+
+6. Missing-Value Audit
+
+We checked missing values before changing anything.
+
+Arrivals
+
+Missing:
+
+arrival_id: 484
+variety: 3,735
+unit: 5,143
+farmer_count: 3,899
+Mandi Master
+
+Missing:
+
+district: 4
+state: 4
+mandi_type: 11
+total_area_acres: 6
+Price
+
+Missing:
+
+mandi_id: 1,235
+district: 773
+Transport
+
+Missing:
+
+arrival_time: 1,053
+transit_hours: 518
+distance_unit: 1,032
+vehicle_no: 1,622
+driver_id: 1,551
+Weather
+
+Missing:
+
+timestamp: 1,555
+temp_unit: 2,263
+rainfall: 791
+rain_unit: 791
+humidity_percent: 1,500
+7. Duplicate Audit
+
+We also checked duplicate records.
+
+Dataset	Duplicate rows
+Arrivals	750
+Mandi Master	3
+Price	0
+Transport	400
+Weather	0
+
+An important principle we established:
+
+Don't blindly delete every row containing a missing value.
+
+Some missing values can be recovered or handled intelligently. Others should remain missing and be documented.
+
+That is important for the datathon's Data Rescue scoring.
+
+8. Why We Started With Mandi Master
+
+We chose to clean the Mandi Master first because it is the reference table for the other datasets.
+
+It contains:
+
+mandi_id
+mandi_name
+district
+state
+mandi_type
+total_area_acres
+
+Other datasets will eventually connect to it through mandi_id or district.
+
+So the idea is:
+
+Fix the reference/master data first, then use it to help clean the other datasets.
+
+9. Mandi Master Problems We Found
+
+The raw master data contained several intentional inconsistencies.
+
+Duplicate records
+
+We found three duplicated mandi records:
+
+MANDI001
+MANDI006
+MANDI031
+
+Each appeared twice with identical information.
+
+Therefore, these were safe to remove as exact duplicates.
+
+Mandi type inconsistencies
+
+We found:
+
+Private
+PRIVATE
+
+APMC
+apmc
+
+Direct
+
+We standardized them to:
+
+Private
+APMC
+Direct
+Unknown
+
+Missing mandi types were not deleted.
+
+They were converted to:
+
+Unknown
+District capitalization problems
+
+Examples:
+
+ludhiana
+Ludhiana
+
+MOGA
+Moga
+
+FATEHABAD
+Fatehabad
+
+karnal
+Karnal
+KARNAL
+
+AMBALA
+Ambala
+
+We standardized these using title case.
+
+10. Important Data-Cleaning Decision
+
+We noticed that some mandi names and districts appear geographically unusual.
+
+For example:
+
+Hyderabad Mandi → Ludhiana
+Kochi Mandi → Amritsar
+
+We did not manually correct these.
+
+Why?
+
+Because the dataset is synthetic/educational and the goal is to rescue and standardize the supplied data, not invent replacements based on our assumptions.
+
+This is an important point we can later mention in the README/report:
+
+Only deterministic formatting and normalization corrections were applied. Potentially anomalous business values were retained unless they could be validated from another source within the dataset.
+
+That's a strong data-engineering practice.
+
+11. Mandi Master Cleaning Code
+
+We created a cleaning process that:
+
+A. Removes exact duplicates
+master_clean = master.drop_duplicates()
+B. Standardizes Mandi IDs
+
+For example, the function is designed to normalize formats such as:
+
+MANDI001
+MANDI-001
+mandi_001
+M001
+
+into:
+
+MANDI001
+C. Standardizes text
+
+District/state values are stripped and converted to consistent capitalization.
+
+D. Standardizes mandi type
+Private / PRIVATE → Private
+APMC / apmc       → APMC
+Direct            → Direct
+missing           → Unknown
+E. Converts area to numeric
+pd.to_numeric(..., errors="coerce")
+12. Final Mandi Master Result
+
+After cleaning:
+
+Rows:              57
+Columns:            6
+Unique mandi IDs:  57
+
+So:
+
+Before
+60 rows
+57 unique actual mandi records
+3 exact duplicate rows
+After
+57 rows
+57 unique mandi IDs
+
+The cleaned distribution of mandi types is:
+
+Mandi Type	Count
+APMC	20
+Private	17
+Direct	9
+Unknown	11
+
+Remaining missing values:
+
+Column	Missing
+mandi_id	0
+mandi_name	0
+district	4
+state	4
+mandi_type	0
+total_area_acres	6
+
+We intentionally retained those missing district/state/area values rather than inventing data.
+
+13. Current Project Status
+
+We're currently here:
+
+✅ Track selected
+✅ Dataset understood
+✅ Architecture planned
+✅ All 5 datasets loaded
+✅ Initial audit completed
+✅ Missing values identified
+✅ Duplicate counts identified
+✅ Mandi Master cleaned
+✅ Mandi Master validated
+
+⏳ Arrivals cleaning        ← NEXT
+⬜ Price cleaning
+⬜ Weather cleaning
+⬜ Transport cleaning
+⬜ Cross-dataset validation
+⬜ Data joining
+⬜ SQL/DuckDB analytics
+⬜ KPI calculations
+⬜ Power BI dashboard
+⬜ AI chatbot
+⬜ Website
+⬜ README
+⬜ Final PPT/demo
+14. What We'll Eventually Report
+
+By the end, your report should be able to tell a clear story:
+
+Problem → Messy Data → Data Rescue → Reliable Analytics → Business Insights → Decision Support
+
+For example:
+
+We processed five heterogeneous agricultural datasets containing approximately 63,000 raw records, standardized inconsistent identifiers, units, dates, currencies and categorical values, handled duplicates and missing data, and integrated the datasets into a common analytical model for mandi-to-market supply-chain analysis.
+
+We'll calculate the exact final figures later rather than putting guesses into the report.
+
+🌾 Arrivals Dataset — Cleaning Completed
+
+Raw dataset: track3_mandi_arrivals.csv
+
+Original: 25,750 rows × 8 columns.
+
+1. Removed exact duplicate rows ✅
+
+We found:
+
+Raw rows              = 25,750
+Duplicate rows removed = 750
+Remaining rows        = 25,000
+
+We used:
+
+arrivals_clean = arrivals_clean.drop_duplicates()
+
+This removes only exact duplicate records, not legitimate records that happen to have similar values.
+
+2. Cleaned arrival_id ✅
+
+Original problem:
+
+arrival_id had 484 missing values
+
+We generated unique IDs for missing values rather than deleting those records.
+
+Example:
+
+ARR0001234
+ARR0005678
+...
+ARR_MISSING_00001
+
+Final result:
+
+Missing arrival IDs = 0
+3. Standardized mandi_id ✅
+
+The dataset contained many formats:
+
+MANDI026
+056
+mandi050
+mandi_049
+MANDI-054
+M045
+
+We converted them into one standard:
+
+MANDI001
+MANDI002
+...
+MANDI057
+
+For example:
+
+056        → MANDI056
+M045       → MANDI045
+MANDI-054  → MANDI054
+mandi_049  → MANDI049
+
+Final validation:
+
+Invalid Mandi IDs = 0
+4. Standardized crop names ✅
+
+The raw data contained 36 different crop-name representations.
+
+We mapped them into standardized categories:
+
+Raw variants	Clean value
+Wheat, wheat, WHEAT, Gehun, GEHUN, Kanak, गेहूं	Wheat
+Rice, Paddy, paddy, Dhaan, Chawal, चावल, धान	Rice
+Maize, Corn, corn, Makka, Makki, मक्का	Maize
+Mustard, mustard, Sarso, Sarson, सरसों	Mustard
+Cotton, cotton, Kapas, Narma, कपास	Cotton
+Sugarcane, sugarcane, Ganna, Ganne, गन्ना	Sugarcane
+Basmati	Basmati
+
+Final categories:
+
+Wheat
+Mustard
+Sugarcane
+Maize
+Cotton
+Rice
+Basmati
+5. Recovered units embedded inside quantity ✅
+
+Some rows had:
+
+arrival_quantity = "415.88 qtl"
+unit = NaN
+
+or:
+
+arrival_quantity = "12,270.0 KG"
+unit = NaN
+
+The dataset contains many such cases.
+
+We extracted the unit from the quantity whenever possible.
+
+For example:
+
+415.88 qtl → 415.88 + QTL
+12,270 KG  → 12,270 + KG
+6. Standardized unit names ✅
+
+Different representations:
+
+Q
+Qtl
+qtl
+quintal
+Quintals
+
+KG
+KGS
+Kgs
+kilo
+
+T
+MT
+tonnes
+Tonnes
+
+were standardized to:
+
+QTL
+KG
+TONNE
+
+The raw dataset had 15 different unit labels.
+
+7. Identified genuinely missing units ✅
+
+After recovering units from embedded values, 1,307 rows still had no reliable unit information.
+
+We investigated them by:
+
+Crop
+Mandi
+Date
+Quantity distribution
+
+They were distributed across the dataset rather than belonging to an obvious single category.
+
+Therefore, we did not guess their units.
+
+We assigned:
+
+UNKNOWN
+
+This is an important data-quality decision.
+
+8. Extracted numeric quantity ✅
+
+We created:
+
+quantity_numeric
+
+This removes things like:
+
+,
+KG
+qtl
+
+from the raw quantity.
+
+Examples:
+
+"12,270.0 KG" → 12270.0
+"415.88 qtl"  → 415.88
+9. Converted quantities to Quintals ✅
+
+The datathon specifies:
+
+1 Tonne  = 10 Quintals
+1 Quintal = 100 KG
+
+We created:
+
+arrival_quantity_qtl
+
+Conversions:
+
+KG     → KG / 100
+QTL    → QTL
+TONNE  → TONNE × 10
+
+Example:
+
+44.841 TONNE → 448.41 QTL
+187.68 QTL   → 187.68 QTL
+1518 KG      → 15.18 QTL
+10. Created a quantity-quality flag ✅
+
+We added:
+
+quantity_quality
+
+with:
+
+VALID
+UNKNOWN_UNIT
+
+Current result:
+
+VALID           22,460
+UNKNOWN_UNIT     1,307
+----------------------
+Total           23,767
+
+This is useful later because our dashboard can calculate arrival KPIs using only quantities that have a defensible unit conversion.
+
+11. Removed negative arrival quantities ✅
+
+We found 1,261 negative quantities initially. After duplicate removal, there were 1,233 negative records.
+
+Examples included:
+
+-107.13 KG
+-331.59 Qtl
+-177.05 KG
+
+We didn't use abs() to turn them positive.
+
+Instead, we removed them because a negative quantity isn't a valid physical arrival amount.
+
+Final:
+
+Negative QTL = 0
+12. Standardized dates ✅
+
+The raw dates were messy, with formats such as:
+
+2026-05-24
+15/07/2026
+27.06.2026
+2026/07/15
+14-Jun-2026
+
+We built a format-specific parser instead of relying on pandas' automatic mixed-format inference.
+
+Final:
+
+Valid dates   = 23,767
+Invalid dates = 0
+
+Minimum = 2026-01-01
+Maximum = 2026-09-09
+
+So the date issue is completely resolved.
+
+📊 Final Arrivals Status
+Check	Result
+Raw rows	25,750
+Duplicate rows removed	750
+Final rows	23,767
+Missing arrival IDs	0
+Invalid mandi IDs	0
+Standardized crop categories	7
+Standardized units	KG / QTL / TONNE / UNKNOWN
+Unknown units	1,307
+Valid quantity conversions	22,460
+Negative quantities	0
+Invalid dates	0
+Duplicate rows remaining	0
+Missing variety	3,448
+Missing farmer count	3,631
+
+The remaining missing variety and farmer_count are not yet fixed. We haven't blindly imputed those because we haven't established a defensible rule for them.
+
+
+Price & MSP — What We Did
+1. Loaded and inspected the raw data
+
+The raw dataset had 12,000 rows and 9 columns:
+
+record_id
+date
+mandi_id
+district
+crop_name
+min_price
+max_price
+modal_price
+msp
+
+We first checked:
+
+Data types
+Missing values
+Duplicate rows
+Different formats used for IDs, dates, crops, and prices.
+2. Cleaned missing/blank values
+
+We discovered that some fields contained actual NaN values while others contained empty strings.
+
+For example, district initially appeared to have:
+
+773 NaN
+773 blank strings
+
+So the actual missing district count was:
+
+773 + 773 = 1,546
+
+We converted blank strings into proper missing values (NA).
+
+This is important because otherwise pandas would treat blank strings as valid data.
+
+3. Cleaned mandi_id
+
+The raw dataset had IDs in several formats, such as:
+
+MANDI005
+mandi005
+M012
+013
+MANDI-050
+mandi_057
+
+We standardized them into one format:
+
+MANDI001
+MANDI002
+...
+MANDI057
+
+Then we checked them against the Mandi Master.
+
+Result:
+
+Unique mandi IDs in Price data: 57
+Unique mandi IDs in Master: 57
+Invalid mandi IDs: 0
+
+✅ All available mandi IDs are valid.
+
+4. Standardized crop names
+
+The dataset contained different names for the same crops, such as:
+
+WHEAT
+Wheat
+Gehun
+Kanak
+गेहूं
+
+These were standardized into canonical names such as:
+
+Wheat
+Rice
+Maize
+Mustard
+Cotton
+Sugarcane
+Basmati
+
+We also checked for values that weren't mapped.
+
+Result:
+
+Unmapped crop values: []
+
+✅ All crop names were successfully standardized.
+
+5. Cleaned price columns
+
+The price fields contained messy formats such as:
+
+₹2,450
+Rs. 2450
+INR 2450
+2450/-
+2,450
+
+We removed currency symbols, commas, /−, extra spaces, etc., and converted the columns to numeric values.
+
+The cleaned columns were:
+
+min_price
+max_price
+modal_price
+msp
+
+All became numeric Float64 columns.
+
+6. Cleaned dates
+
+The raw dates appeared in multiple formats, including:
+
+2026/07/26
+2026-07-17
+09.01.2026
+18/08/2026
+01-24-2026
+08-Aug-2026
+
+We converted them into proper dates.
+
+Final range:
+
+2026-01-01 → 2026-09-09
+
+✅ No invalid date issue was found.
+
+7. Investigated missing mandi_id
+
+There were:
+
+1,235 records with missing mandi_id.
+
+We deliberately did not guess which mandi they belonged to.
+
+Some of these records still had a district, so they can potentially be used for district-level analysis.
+
+8. Found noisy district information
+
+This was the most important discovery.
+
+For records where both mandi_id and district were available, we compared the Price dataset's district against the Mandi Master.
+
+Result:
+
+Rows with both districts available: 8,721
+District matches: 495
+District mismatches: 8,226
+
+So the Price dataset's district field is highly inconsistent with the Mandi Master.
+
+Instead of manually changing thousands of records, we used the Mandi Master as the canonical source whenever mandi_id exists.
+
+9. Created district_final
+
+We kept the original district:
+
+district
+
+and created:
+
+district_final
+
+The logic was:
+
+If mandi_id exists → use the Mandi Master's district
+
+Otherwise:
+
+Use the original Price dataset district
+
+If neither exists:
+
+Leave it missing.
+
+Result:
+
+Master district:       9,996
+Original Price district: 1,733
+Still missing:            271
+
+Therefore:
+
+11,729 / 12,000 = 97.7% of records now have a usable district.
+
+We kept the original fields rather than silently overwriting them, which makes our cleaning process auditable.
+
+10. Validated prices
+
+We checked for:
+
+Negative prices
+Zero prices
+min_price > max_price
+modal_price outside the min–max range
+
+Result:
+
+Negative values: 0
+Zero values: 0
+Min price > Max price: 0
+Modal price outside Min-Max: 0
+
+✅ Price relationships are internally consistent.
+
+Final Price/MSP dataset
+
+We ended up with:
+
+12,000 rows × 12 columns
+
+record_id
+date
+date_raw
+mandi_id
+district
+district_final
+crop_name
+crop_name_raw
+min_price
+max_price
+modal_price
+msp
+
+Final missing values:
+
+Column	Missing
+record_id	0
+date	0
+mandi_id	1,235
+district	1,546
+district_final	271
+crop_name	0
+min_price	598
+max_price	598
+modal_price	610
+msp	2,377
+
+And:
+
+Duplicate rows: 0
+In simple terms
+
+Our pipeline is:
+
+Raw Price data
+↓
+Remove/standardize blanks
+↓
+Clean IDs
+↓
+Standardize crops
+↓
+Clean currency/prices
+↓
+Standardize dates
+↓
+Validate mandi IDs against Master
+↓
+Use Master to resolve reliable districts
+↓
+Validate price relationships
+↓
+Clean Price/MSP dataset
+
+And importantly, we didn't fabricate missing information. That's a strong data-quality decision for the datathon.
+
+
+Price & MSP Dataset — Summary of What We Did
+
+We started with the raw 12,000-row Price/MSP dataset and converted it into a cleaner, analytics-ready dataset.
+
+1. Inspected the raw data
+
+We checked:
+
+Columns and data types
+Missing values
+Duplicate rows
+Messy dates, crop names, mandi IDs, and price formats.
+2. Cleaned missing/blank values
+
+Blank strings were converted into proper missing values (NA).
+
+For district, we discovered:
+
+773 actual NaN
+773 blank strings
+1,546 total missing
+3. Standardized mandi_id
+
+Different formats such as:
+
+MANDI005
+mandi005
+M012
+013
+MANDI-050
+mandi_057
+
+were standardized to the canonical format:
+
+MANDI001 ... MANDI057
+
+Then we validated them against the Mandi Master.
+
+Result:
+
+57 unique IDs in Price data
+57 unique IDs in Master
+0 invalid IDs ✅
+4. Standardized crop names
+
+Variants such as:
+
+WHEAT / Gehun / Kanak / गेहूं
+Rice / Paddy / Dhaan / चावल
+
+were mapped to canonical crop names.
+
+Final crops:
+
+Wheat
+Rice
+Maize
+Mustard
+Cotton
+Sugarcane
+Basmati
+
+Unmapped crops: 0 ✅
+
+5. Cleaned prices
+
+We converted messy values such as:
+
+₹2,450
+Rs. 2450
+INR 2450
+2,450/-
+
+into numeric values for:
+
+min_price
+max_price
+modal_price
+msp
+6. Standardized dates
+
+Different date formats were converted into proper datetime values.
+
+Final range:
+
+2026-01-01 → 2026-09-09 ✅
+
+7. Fixed unreliable district information
+
+We compared Price district with the Mandi Master.
+
+Only 495 of 8,721 matching records agreed, so the original district field was highly inconsistent.
+
+Instead of guessing, we created:
+
+district_final
+
+with this rule:
+
+Valid mandi_id → use Master district
+
+No mandi_id → use original Price district
+
+Neither available → remain missing
+
+Result:
+
+9,996 from Master
+1,733 from original Price district
+271 still missing
+
+So 97.7% have a usable district.
+
+8. Investigated missing MSP
+
+Initially:
+
+2,377 MSP values were missing.
+
+We checked missing MSP by crop and found the missing rate was roughly 18–21% across all crops, so it wasn't concentrated in one crop.
+
+Then we checked whether MSP was consistent for each:
+
+crop_name + date
+
+Result:
+
+1,653 crop-date groups had an MSP
+0 groups had conflicting MSP values
+
+Therefore, we safely recovered 2,347 MSP values using the unique MSP for the same crop and date.
+
+We kept an audit column:
+
+msp_was_imputed
+
+So we can clearly identify which values were filled.
+
+Remaining missing MSP:
+
+30 — these stay missing because there wasn't enough information to determine them safely.
+
+9. Validated price quality
+
+We checked:
+
+Negative prices → 0
+Zero prices → 0
+min_price > max_price → 0
+modal_price outside min/max → 0
+Duplicate rows → 0
+Final dataset
+
+12,000 rows × 13 columns
+
+The 13th column is our audit field:
+
+msp_was_imputed
+
+The final cleaned file will use this Colab path consistently:
+
+PRICE_CLEAN_PATH = "/content/cleaned/price_and_msp_clean.csv"
+Overall cleaning flow
+Raw Price/MSP
+      ↓
+Clean blanks
+      ↓
+Standardize mandi IDs
+      ↓
+Standardize crop names
+      ↓
+Clean prices/currency
+      ↓
+Standardize dates
+      ↓
+Validate against Mandi Master
+      ↓
+Create canonical district_final
+      ↓
+Recover 2,347 MSP values
+      ↓
+Validate prices
+      ↓
+Clean Price/MSP Dataset
+
+Price/MSP is now ready for the analytics stage. Next we'll apply the same straightforward process to the Transport Logistics dataset.
+
+
+Transport Dataset — What We Did
+
+We cleaned the Transport Logistics dataset step by step:
+
+Loaded and inspected the raw data
+Checked columns, data types, missing values, and duplicates.
+Found 10,400 raw records.
+Removed duplicate records
+Removed 400 exact duplicate rows.
+Final dataset became 10,000 rows.
+Cleaned transit hours
+Extracted numeric values from messy entries like "4.7 hrs".
+Identified negative transit times as invalid.
+Converted invalid/negative values to missing instead of taking their absolute value.
+Cleaned distance
+Extracted numeric distance values from messy strings such as "316.5 KM".
+Standardized distance units.
+Converted miles to kilometres using 1 mile = 1.60934 km.
+Created the final distance_km column.
+Cleaned timestamps
+Parsed the different date/time formats used in departure and arrival columns.
+Correctly handled formats such as DD/MM/YYYY, MM-DD-YYYY, ISO timestamps, and month-name formats.
+Kept missing arrival timestamps as missing rather than guessing them.
+Recovered missing transit times
+Calculated transit duration from departure and arrival timestamps where possible.
+Used those calculated values only when the original transit time was missing/invalid.
+Kept valid original transit values unchanged.
+Added transit_hours_imputed to record which values were recovered.
+Cleaned vehicle registrations
+Standardized vehicle numbers by removing spaces/hyphens and converting them to uppercase.
+Example:
+pb 48-DF-3590 → PB48DF3590
+Preserved the original values in vehicle_no_raw.
+Standardized mandi IDs
+Found 342 different raw ID formats.
+Converted them into the common MANDI001 format.
+This reduced them to 57 canonical mandi IDs.
+Validated against the Mandi Master
+Compared Transport mandi IDs with the cleaned Master dataset.
+All 57 Transport mandi IDs matched the Master.
+0 invalid IDs.
+Saved the cleaned dataset
+Saved the final cleaned Transport data to:
+/content/cleaned/transport_logistics_clean.csv
