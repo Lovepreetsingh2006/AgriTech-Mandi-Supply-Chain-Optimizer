@@ -1,0 +1,318 @@
+## 1. `mandi_master_clean.csv`
+
+**Purpose:** Master/reference table for all mandis.
+
+Contains information such as:
+
+| Column             | Meaning                           |
+| ------------------ | --------------------------------- |
+| `mandi_id`         | Unique ID of the mandi            |
+| `mandi_name`       | Name of mandi                     |
+| `district`         | District where mandi belongs      |
+| `state`            | State                             |
+| `mandi_type`       | APMC / Private / Direct / Unknown |
+| `total_area_acres` | Mandi area                        |
+
+**Size:** 57 rows × 6 columns.
+
+### Why we need it
+
+This is our **reference table**. We use `mandi_id` to connect Arrivals, Price and Transport.
+
+---
+
+# 2. `arrivals_final.csv`
+
+**Purpose:** Daily agricultural arrivals at mandis.
+
+It contains information about **how much crop arrived at each mandi**.
+
+It includes the original cleaned arrival information plus the Master information we added.
+
+Main information:
+
+| Information  | Example                           |
+| ------------ | --------------------------------- |
+| Arrival ID   | Unique arrival record             |
+| Date         | Arrival date                      |
+| Mandi ID     | Which mandi                       |
+| Mandi name   | Mandi name                        |
+| District     | Mandi district                    |
+| State        | State                             |
+| Crop         | Wheat, Rice, Maize, etc.          |
+| Variety      | Crop variety                      |
+| Quantity     | Original quantity                 |
+| Quantity Qtl | Standardized quantity in quintals |
+| Unit         | Original/cleaned unit             |
+| Farmer count | Number of farmers                 |
+
+**Size:** 23,767 rows × 15 columns after enrichment.
+
+### Why we need it
+
+This will be one of our **most important analytics datasets**.
+
+We'll use it for:
+
+* Total arrivals
+* Crop-wise arrivals
+* Mandi-wise arrivals
+* Daily/weekly/monthly arrival trends
+* Top 5 mandis
+* Wheat/Rice/Maize analysis
+* District-wise supply
+* Rainfall vs crop arrivals
+
+---
+
+# 3. `price_and_msp_final.csv`
+
+**Purpose:** Crop prices and government MSP at mandis.
+
+It contains:
+
+| Column/information | Meaning                                   |
+| ------------------ | ----------------------------------------- |
+| `record_id`        | Price record ID                           |
+| `date`             | Price date                                |
+| `mandi_id`         | Mandi                                     |
+| `district`         | Original district information             |
+| `district_final`   | Final district used for analysis          |
+| `crop_name`        | Standardized crop                         |
+| `min_price`        | Minimum market price                      |
+| `max_price`        | Maximum market price                      |
+| `modal_price`      | Most representative/modal price           |
+| `msp`              | Minimum Support Price                     |
+| `msp_was_imputed`  | Whether MSP was recovered during cleaning |
+
+There are **12,000 price records**.
+
+### Why we need it
+
+This will be the main dataset for our **MSP/price intelligence**.
+
+We'll calculate things like:
+
+```text
+Modal Price - MSP
+```
+
+and:
+
+```text
+(Modal Price - MSP) / MSP × 100
+```
+
+Then we can identify:
+
+* Mandis selling below MSP
+* Price crashes
+* Crops with strong prices
+* Crops with weak prices
+* Best/worst performing mandis
+* Price trends
+* Average modal price
+* Price volatility
+
+This is likely to become one of the most important dashboard sections.
+
+---
+
+# 4. `transport_logistics_final.csv`
+
+**Purpose:** Truck transportation from mandi to warehouse/destination.
+
+It contains information about:
+
+| Information             | Meaning                       |
+| ----------------------- | ----------------------------- |
+| `trip_id`               | Unique truck trip             |
+| `mandi_id`              | Origin mandi                  |
+| `mandi_name`            | Mandi name                    |
+| `district`              | District                      |
+| `state`                 | State                         |
+| `destination_warehouse` | Destination                   |
+| `departure_time`        | Departure                     |
+| `arrival_time`          | Arrival                       |
+| `transit_hours_final`   | Final cleaned transit time    |
+| `distance_km`           | Distance in KM                |
+| `vehicle_no_clean`      | Clean vehicle number          |
+| `driver_id`             | Driver                        |
+| `transit_hours_imputed` | Whether transit was recovered |
+
+**Size:** 10,000 rows.
+
+### Why we need it
+
+We'll use it to identify **logistics bottlenecks**:
+
+* Average transit time
+* Delayed routes
+* Warehouse-wise transit
+* Mandi → warehouse performance
+* Distance vs transit time
+* Delay rate
+* Worst-performing routes
+* Potential supply-chain bottlenecks
+
+---
+
+# 5. `weather_sensors_final.csv`
+
+**Purpose:** Raw/cleaned IoT weather sensor observations.
+
+It contains:
+
+| Column             | Meaning                  |
+| ------------------ | ------------------------ |
+| `sensor_id`        | Weather sensor           |
+| `timestamp`        | Original timestamp       |
+| `timestamp_ist`    | Standardized Indian time |
+| `temperature_c`    | Temperature in °C        |
+| `rainfall_mm`      | Rainfall in mm           |
+| `humidity_percent` | Humidity                 |
+| `date`             | Date used for analysis   |
+
+There are **15,000 sensor observations from 51 sensors**.
+
+### Why we need it
+
+This is our **detailed weather dataset**.
+
+We'll use it when we need sensor-level analysis.
+
+For example:
+
+* Temperature trends
+* Rainfall patterns
+* Humidity
+* Sensor coverage
+* Weather anomalies
+
+But for most business analysis, we won't directly use all 15,000 rows. We'll usually use the next file.
+
+---
+
+# 6. `weather_daily.csv`
+
+**Purpose:** Daily summarized weather dataset.
+
+This is derived from `weather_sensors_final.csv`.
+
+Instead of thousands of individual sensor readings, it gives us **one row per date**.
+
+It contains:
+
+| Column              | Meaning                     |
+| ------------------- | --------------------------- |
+| `date`              | Date                        |
+| `avg_temperature_c` | Average temperature         |
+| `total_rainfall_mm` | Total recorded rainfall     |
+| `avg_humidity`      | Average humidity            |
+| `sensor_count`      | Number of sensors reporting |
+
+Your current file has **252 daily records**. 
+
+### Why we need it
+
+This is going to be extremely useful for joining weather with arrivals:
+
+```text
+             DATE
+              ↓
+ARRIVALS ←→ WEATHER DAILY
+              ↓
+     Rainfall vs Arrivals
+```
+
+For example:
+
+> Did wheat arrivals fall after heavy rainfall?
+
+or:
+
+> Does high rainfall correspond with lower mandi arrivals?
+
+This is exactly the kind of business insight we want for the project.
+
+---
+
+# 7. `cross_dataset_recovery_audit.csv`
+
+**Purpose:** Documentation/audit file.
+
+This is **not an analytics dataset**.
+
+It records what we did while connecting the datasets.
+
+For example:
+
+| Dataset   | Operation         | Source            | Matching key       |
+| --------- | ----------------- | ----------------- | ------------------ |
+| Price     | District recovery | Mandi Master      | `mandi_id`         |
+| Price     | MSP validation    | Previous cleaning | `crop_name + date` |
+| Arrivals  | Master enrichment | Mandi Master      | `mandi_id`         |
+| Transport | Master enrichment | Mandi Master      | `mandi_id`         |
+| Weather   | Sensor validation | None              | None               |
+
+Your audit confirms these operations and their before/after results. 
+
+### Why we need it
+
+This is mainly for:
+
+* GitHub documentation
+* Reproducibility
+* Datathon judges
+* Showing how missing values were handled
+* Proving that we didn't randomly invent data
+
+---
+
+# The important distinction
+
+Think of the 7 files like this:
+
+```text
+                    ┌─────────────────────┐
+                    │ mandi_master_clean  │
+                    │   57 mandis         │
+                    └──────────┬──────────┘
+                               │
+             ┌─────────────────┼─────────────────┐
+             ↓                 ↓                 ↓
+       ARRIVALS             PRICE            TRANSPORT
+       23,767 rows         12,000 rows       10,000 rows
+             │                 │                 │
+             └─────────────────┼─────────────────┘
+                               │
+                         ANALYTICS
+                               ↑
+                               │
+                    ┌──────────┴──────────┐
+                    │                     │
+             weather_daily       weather_sensors
+              252 days            15,000 readings
+```
+
+And separately:
+
+```text
+cross_dataset_recovery_audit.csv
+             ↓
+     Documentation/Audit
+```
+
+## For our next notebook
+
+We'll mainly load **these 5**:
+
+```python
+master
+arrivals_final
+price_and_msp_final
+transport_logistics_final
+weather_daily
+```
+
+
